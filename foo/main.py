@@ -1,25 +1,22 @@
 # _*_ coding  ：  UTF-8 _*_
 # 开发团队    ：  dream
 # 开发人员    ：  刘育彬
-# 开发时间    ：  2020/1/24  11:08
+# 开发时间    ：  2020/1/25  14:59
 # 文件名称    ：  main.py
 # 开发工具    ：  PyCharm
 
 
-import pygame
-from pygame.locals import *
-from sys import exit
+import pygame             # 导入 pygame 库
+from pygame.locals import *               # 导入 pygame 库中的一些常量
+from sys import exit      # 导入 sys 库中的 exit 函数
 import random
-
-
-# 设置游戏屏幕大小
-screen_width = 480
-screen_height = 800
+import codecs
 
 
 # 子弹类
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, bullet_img, init_pos):
+        # 调用父类的初始化方法初始化 sprite 的属性
         pygame.sprite.Sprite.__init__(self)
         self.image = bullet_img
         self.rect = self.image.get_rect()
@@ -32,17 +29,19 @@ class Bullet(pygame.sprite.Sprite):
 
 # 玩家飞机类
 class Player(pygame.sprite.Sprite):
-    def __init__(self, plane_img, player_rect, init_pos):
+    def __init__(self, player_rect, init_pos):
+        # 调用父类的初始化方法初始化 sprite 的属性
         pygame.sprite.Sprite.__init__(self)
-        self.image = []                     # 用来存储玩家飞机图片的列表
+        self.image = []            # 用来存储玩家飞机图片的列表
         for i in range(len(player_rect)):
-            self.image.append(plane_img.subsurface(player_rect[i]).convert_alpha())
-        self.rect = player_rect[0]          # 初始化图片所在的矩形
-        self.rect.topleft = init_pos        # 初始化矩形的左上角坐标
-        self.speed = 2                      # 初始化玩家飞机速度，这里是一个确定的值
-        self.bullets = pygame.sprite.Group()          # 玩家飞机所发射的子弹的集合
-        self.img_index = 0                  # 玩家飞机图片索引
-        self.is_hit = False                 # 玩家是否被击中
+            self.image.append(player_rect[i].convert_alpha())
+
+        self.rect = player_rect[0].get_rect()            # 初始化图片所在的矩形
+        self.rect.topleft = init_pos                     # 初始化矩形的左上角坐标
+        self.speed = 8                                   # 初始化玩家飞机速度，这里是一个固定的值
+        self.bullets = pygame.sprite.Group()               # 玩家飞机所发射的子弹的集合
+        self.img_index = 0                               # 玩家飞机图片索引
+        self.is_hit = False                              # 玩家是否被击中
 
     # 发射子弹
     def shoot(self, bullet_img):
@@ -81,9 +80,10 @@ class Player(pygame.sprite.Sprite):
 # 敌机类
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, enemy_img, enemy_down_imgs, init_pos):
+        # 调用父类的初始化方法初始化 sprite 的属性
         pygame.sprite.Sprite.__init__(self)
         self.image = enemy_img
-        self.rect = self.image.get_rect
+        self.rect = self.image.get_rect()
         self.rect.topleft = init_pos
         self.down_imgs = enemy_down_imgs
         self.speed = 2
@@ -94,85 +94,109 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.top += self.speed
 
 
-# 初始化pygame
+# 设置游戏屏幕大小
+screen_width = 480
+screen_height = 800
+
+# 初始化 pygame
 pygame.init()
-# 设置游戏界面大小、背景图片及标题
-# 游戏界面像素大小
-screen = pygame.display.set_mode((screen_width, screen_height))
+# 设置游戏界面大小
+screen = pygame.display.set_mode((screen_width, screen_height))                # surface 对象，初始化一个准备显示的界面
 # 游戏界面标题
-pygame.display.set_caption('飞机大战')
-# 图标
-ic_launcher = pygame.image.load('image/ic_launcher.png').convert_alpha()
+pygame.display.set_caption('彩图版飞机大战')
+# 设置游戏界面图标
+ic_launcher = pygame.image.load('image/ic_launcher.png').convert_alpha()       # surface 对象
 pygame.display.set_icon(ic_launcher)
 # 背景图
-background = pygame.image.load('image/background.png').convert()
-# Game Over 背景图
+background = pygame.image.load('image/background.png').convert_alpha()         # surface 对象
+# 游戏结束背景图片
 game_over = pygame.image.load('image/gameover.png')
-# 飞机及子弹图片集合
-plane_img = pygame.image.load('image/shoot.png')
+# 子弹图片
+plane_bullet = pygame.image.load('image/bullet.png')
+# 飞机图片
+player_img1 = pygame.image.load('image/player1.png')
+player_img2 = pygame.image.load('image/player2.png')
+player_img3 = pygame.image.load('image/player_off1.png')
+player_img4 = pygame.image.load('image/player_off2.png')
+player_img5 = pygame.image.load('image/player_off3.png')
+# 敌机图片
+enemy_img1 = pygame.image.load('image/enemy1.png')
+enemy_img2 = pygame.image.load('image/enemy2.png')
+enemy_img3 = pygame.image.load('image/enemy3.png')
+enemy_img4 = pygame.image.load('image/enemy4.png')
 
 
 def start_game():
+    # 游戏循环帧频设置
+    clock = pygame.time.Clock()               # pygame.time     管理时间和帧信息
     # 设置玩家飞机不同状态的图片列表，多张图片展示为动画效果
     player_rect = []
     # 玩家飞机图片
-    player_rect.append(pygame.Rect(0, 99, 100, 120))
-    player_rect.append(pygame.Rect(165, 360, 102, 126))
+    player_rect.append(player_img1)
+    player_rect.append(player_img2)
     # 玩家爆炸图片
-    player_rect.append(pygame.Rect(165, 234, 102, 126))
-    player_rect.append(pygame.Rect(330, 498, 102, 126))
-    player_rect.append(pygame.Rect(330, 498, 102, 126))
-    player_rect.append(pygame.Rect(432, 624, 102, 126))
+    player_rect.append(player_img2)
+    player_rect.append(player_img3)
+    player_rect.append(player_img4)
+    player_rect.append(player_img5)
     player_pos = [200, 600]
-    player = Player(plane_img, player_rect, player_pos)
+    # 初始化玩家飞机
+    player = Player(player_rect, player_pos)
     # 子弹图片
-    bullet_rect = pygame.Rect(1005, 987, 10, 21)
-    bullet_img = plane_img.subsurface(bullet_rect)
+    bullet_img = plane_bullet
+    # 敌机不同状态的图片列表，多张图片展示为动画效果
+    enemy1_img = enemy_img1
+    enemy1_rect = enemy1_img.get_rect()
+    enemy1_down_imgs = []
+    enemy1_down_imgs.append(enemy_img1)
+    enemy1_down_imgs.append(enemy_img2)
+    enemy1_down_imgs.append(enemy_img3)
+    enemy1_down_imgs.append(enemy_img4)
+    # 储存敌机
+    enemies1 = pygame.sprite.Group()
+    # 存储被击毁的飞机，用来渲染击毁动画
+    enemies_down = pygame.sprite.Group()
     # 初始化射击及敌机移动频率
     shoot_frequency = 0
+    enemy_frequency = 0
+    # 玩家飞机被击中后的效果处理
+    player_down_index = 16
+    # 初始化分数
+    score = 0
 
-    # 判断游戏循环推出的参数
+    # 判断游戏循环退出的参数
     running = True
     # 游戏主循环
     while running:
-        # 绘制背景
-        screen.fill(0)
-        screen.blit(background, (0, 0))
-        # 子弹
+        # 生成子弹，需要控制发射频率
+        # 首先判断玩家飞机没有被击中
         if not player.is_hit:
             if shoot_frequency % 15 == 0:
-                player.shoot(bullet_img)
                 player.shoot(bullet_img)
             shoot_frequency += 1
             if shoot_frequency >= 15:
                 shoot_frequency = 0
         for bullet in player.bullets:
+            # 以固定速度移动子弹
             bullet.move()
+            # 移动出屏幕后删除子弹
             if bullet.rect.bottom < 0:
                 player.bullets.remove(bullet)
+        # 显示子弹
         player.bullets.draw(screen)
-        # 判断玩家飞机
-        if not player.is_hit:
-            screen.blit(player.image[player.img_index], player.rect)
-            player.img_index = shoot_frequency // 8
+
+        # 绘制背景
+        screen.fill(0)                 # 使用颜色填充 surface
+        screen.blit(background, (0, 0))
+        # 控制游戏最大帧频为 60
+        clock.tick(60)
         # 更新屏幕
         pygame.display.update()
-        # 处理游戏退出
+        # 退出游戏
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
-        # 获取键盘事件（上下左右按键）
-        key_pressed = pygame.key.get_pressed()
-        # 处理键盘事件（移动飞机的位置）
-        if key_pressed[K_w] or key_pressed[K_UP]:
-            player.move_up()
-        if key_pressed[K_s] or key_pressed[K_DOWN]:
-            player.move_down()
-        if key_pressed[K_a] or key_pressed[K_LEFT]:
-            player.move_left()
-        if key_pressed[K_d] or key_pressed[K_RIGHT]:
-            player.move_right()
+
 
 start_game()
-

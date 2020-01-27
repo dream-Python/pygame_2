@@ -94,6 +94,40 @@ class Enemy(pygame.sprite.Sprite):
         self.rect.top += self.speed
 
 
+'''
+对文件的操作
+写入文本
+传入参数 content，strim，path；
+content 为需要写入的内容，数据类型为字符串
+strim 写入方式
+path 为写入的位置，数据类型为字符串。
+传入的 path 需如下定义：path= r'D:\text.txt'
+f = codecs.open(path, strim, 'utf8') 中，codecs 为包，需要用 import 引入
+strim = 'a' 表示追加写入txt，可以换成 'w' ，表示覆盖写入
+'utf8'表示写入的编码，可以换成 'utf16'等
+'''
+
+
+def write_txt(content, strim, path):
+    f = codecs.open(path, strim, 'utf8')
+    f.write(str(content))
+    f.close()
+
+
+'''
+读取 txt
+表示按行读取 txt 文件，utf8 表示读取编码为 utf8 的文件，可以根据需求改成 utf16，或者 GBK 等
+返回的值为数组，每一个数组的元素代表一行
+若想返回字符串格式，可以改成 return '\n'.join(lines)
+'''
+
+
+def read_txt(path):
+    with open(path,'r', encoding='utf8') as f:
+        lines = f.readlines()
+        return lines
+
+
 # 设置游戏屏幕大小
 screen_width = 480
 screen_height = 800
@@ -168,6 +202,11 @@ def start_game():
     running = True
     # 游戏主循环
     while running:
+        # 绘制背景
+        screen.fill(0)  # 使用颜色填充 surface
+        screen.blit(background, (0, 0))
+        # 控制游戏最大帧频为 60
+        clock.tick(60)
         # 生成子弹，需要控制发射频率
         # 首先判断玩家飞机没有被击中
         if not player.is_hit:
@@ -184,12 +223,66 @@ def start_game():
                 player.bullets.remove(bullet)
         # 显示子弹
         player.bullets.draw(screen)
-
-        # 绘制背景
-        screen.fill(0)                 # 使用颜色填充 surface
-        screen.blit(background, (0, 0))
-        # 控制游戏最大帧频为 60
-        clock.tick(60)
+        # 生成敌机，需要控制生成频率
+        if enemy_frequency % 50 == 0:
+            enemy1_pos = [random.randint(0, screen_width - enemy1_rect.width), 0]
+            enemy1 = Enemy(enemy1_img, enemy1_down_imgs, enemy1_pos)
+            enemies1.add(enemy1)
+        enemy_frequency += 1
+        if enemy_frequency >= 100:
+            enemy_frequency = 0
+        for enemy in enemies1:
+            # 移动敌机
+            enemy.move()
+            # 敌机与玩家飞机碰撞效果处理，两个精灵之间的圆检测
+            if pygame.sprite.collide_circle(enemy, player):
+                enemies_down.add(enemy)
+                enemies1.remove(enemy)
+                player.is_hit = True
+                break
+            # 移动出屏幕后删除飞机
+            if enemy.rect.top < 0:
+                enemies1.remove(enemy)
+        # 敌机被子弹击中效果处理
+        # 将被击中的敌机对象添加到击毁敌机 Group 中，用来渲染击毁动画
+        # 方法 groupcollide() 是检测两个精灵组中精灵们的矩形冲突
+        enemies1_down = pygame.sprite.groupcollide(enemies1, player.bullets, 1, 1)
+        # 遍历 key 值，返回的碰撞敌机
+        for enemy_down in enemies1_down:
+            # 添加销毁的敌机到列表
+            enemies_down.add(enemy_down)
+        # 绘制玩家飞机
+        if not player.is_hit:
+            screen.blit(player.image[player.img_index], player.rect)
+            # 更换图片索引使飞机有动画效果
+            player.img_index = shoot_frequency // 8
+        else:
+            # 玩家飞机被击中后的效果处理
+            player.img_index = player_down_index // 8
+            screen.blit(player.image[player.img_index], player.rect)
+            player_down_index += 1
+            if player_down_index > 47:
+                # 击中效果处理完成后游戏结束
+                running = False
+        # 敌机被子弹击中效果显示
+        for enemy_down in enemies_down:
+            if enemy_down.down_index == 0:
+                pass
+            if enemy_down.down_index > 7:
+                enemies_down.remove(enemy_down)
+                score += 10
+                continue
+            # 显示碰撞图片
+            screen.blit(enemy_down.down_imgs[enemy_down.down_index // 2], enemy_down.rect)
+            enemy_down.down_index += 1
+        # 显示精灵
+        enemies1.draw(screen)
+        # 绘制当前分数
+        score_font = pygame.font.Font(None, 36)
+        score_text = score_font.render(str(score), True, (255, 255, 255))
+        text_rect = score_text.get_rect()
+        text_rect.topleft = [10, 10]
+        screen.blit(score_text, text_rect)
         # 更新屏幕
         pygame.display.update()
         # 退出游戏
@@ -197,6 +290,137 @@ def start_game():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 exit()
+        # 获取键盘事件（上、下、左、右）
+        key_pressed = pygame.key.get_pressed()
+        # 处理键盘事件（移动飞机的位置）
+        if key_pressed[K_w] or key_pressed[K_UP]:
+            player.move_up()
+        if key_pressed[K_s] or key_pressed[K_DOWN]:
+            player.move_down()
+        if key_pressed[K_a] or key_pressed[K_LEFT]:
+            player.move_left()
+        if key_pressed[K_d] or key_pressed[K_RIGHT]:
+            player.move_right()
+
+    # 绘制游戏结束背景
+    screen.blit(game_over, (0, 0))
+    # 游戏 Game Over 后显示最终得分
+    font = pygame.font.Font(None, 48)
+    text = font.render('Score:' + str(score), True, (255, 0, 0))
+    text_rect = text.get_rect()
+    text_rect.centerx = screen.get_rect().centerx
+    text_rect.centery = screen.get_rect().centery + 24
+    screen.blit(text, text_rect)
+    # 使用系统字体
+    xtfont = pygame.font.SysFont('SimHei', 30)
+    # 重新开始按钮
+    textstart = xtfont.render('从新开始', True, (255, 0, 0))
+    text_rect = textstart.get_rect()
+    text_rect.centerx = screen.get_rect().centerx
+    text_rect.centery = screen.get_rect().centery + 120
+    screen.blit(textstart, text_rect)
+    # 排行榜按钮
+    textstart = xtfont.render('排行榜', True, (255, 0, 0))
+    text_rect = textstart.get_rect()
+    text_rect.centerx = screen.get_rect().centerx
+    text_rect.centery = screen.get_rect().centery + 180
+    screen.blit(textstart, text_rect)
+
+    # 判断得分更新排行榜
+    # 临时的变量在到排行榜的时候使用
+    j = 0
+    # 获取文件中内容转换成列表，使用 mr 分割开内容
+    arrayscore = read_txt(r'score.txt')[0].split('mr')
+    # 循环分数列表，在列表里排序
+    for i in range(0, len(arrayscore)):
+        # 判断当前获得的分数是否大于排行榜上的分数
+        if score > int(arrayscore[i]):
+            # 大于排行榜上的内容，把分数和当前分数进行替换
+            j = arrayscore[i]
+            arrayscore[i] = str(score)
+            score = 0
+        # 替换下来的分数向下移动一位
+        if int(j) > int(arrayscore[i]):
+            k = arrayscore[i]
+            arrayscore[i] = str(j)
+            j = k
+    # 循环分数列表，写入文档
+    for i in range(0, len(arrayscore)):
+        # 判断列表中第一个分数
+        if i == 0:
+            # 覆盖写入内容，追加 mr 方便分割内容
+            write_txt(arrayscore[i] + 'mr', 'w', r'score.txt')
+        else:
+            # 判断是否为最后一个分数
+            if i == 9:
+                # 最近添加内容，最后一个分数不添加 mr
+                write_txt(arrayscore[i], 'a', r'score.txt')
+            else:
+                # 不是最后一个分数，添加的时候添加 mr
+                write_txt(arrayscore[i] + 'mr', 'a', r'score.txt')
+
+
+# 排行榜
+def game_ranking():
+    screen2 = pygame.display.set_mode((screen_width, screen_height))
+    # 绘制背景
+    screen2.fill(0)
+    screen2.blit(background, (0, 0))
+    # 使用系统字体
+    xtfont = pygame.font.SysFont('SimHei', 30)
+    # 排行榜按钮
+    textstart = xtfont.render('排行榜', True, (255, 0, 0))
+    text_rect = textstart.get_rect()
+    text_rect.centerx = screen2.get_rect().centerx
+    text_rect.centery = 50
+    screen2.blit(textstart, text_rect)
+    # 重新开始按钮
+    textstart = xtfont.render('重新开始', True, (255, 0, 0))
+    text_rect = textstart.get_rect()
+    text_rect.centerx = screen2.get_rect().centerx
+    text_rect.centery = screen2.get_rect().centery + 120
+    screen2.blit(textstart, text_rect)
+    # 获取排行榜文件内容
+    arrayscore = read_txt(r'score.txt')[0].split('mr')
+    # 遍历排行榜文件显示排行
+    for i in range(0, len(arrayscore)):
+        # 游戏 Game Over 后显示最终得分
+        font = pygame.font.Font(None, 48)
+        # 排名从 1 到 10
+        k = i + 1
+        l_k = len(str(k).encode('gbk')) - len(str(k))
+        text = font.render(str(k).ljust(2 - l_k) + '  ' + arrayscore[i], True, (255, 0, 0))
+        text_rect = text.get_rect()
+        text_rect.centerx = screen2.get_rect().centerx
+        text_rect.centery = 80 + 30*k
+        # 绘制分数内容
+        screen2.blit(text, text_rect)
 
 
 start_game()
+
+
+# 判断点击位置以及处理游戏退出
+while True:
+    for event in pygame.event.get():
+        # 关闭页面游戏退出
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            exit()
+        # 鼠标单击
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            # 判断鼠标单击的位置是否为开始按钮位置范围内
+            if screen.get_rect().centerx - 70 <= event.pos[0] \
+                and event.pos[0] <= screen.get_rect().centerx + 50 \
+                and screen.get_rect().centery + 100 <= event.pos[1] \
+                and screen.get_rect().centery + 140 >= event.pos[1]:
+                # 重新开始游戏
+                start_game()
+            if screen.get_rect().centerx - 70 <= event.pos[0] \
+                and event.pos[0] <= screen.get_rect().centerx + 50 \
+                and screen.get_rect().centery + 160 <= event.pos[1] \
+                and screen.get_rect().centery + 200 >= event.pos[1]:
+                # 显示排行榜
+                game_ranking()
+    # 跟新界面
+    pygame.display.update()
